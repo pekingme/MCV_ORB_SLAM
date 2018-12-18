@@ -2,3 +2,10 @@
 MCV_ORB_SLAM.kdev4
 build/
 lib/
+vocabulary/ORBvoc.txt
+third_party/DBoW2/build/
+third_party/DBoW2/lib/
+third_party/g2o/build/
+third_party/g2o/config.h
+third_party/g2o/config.h.in
+third_party/g2o/lib/

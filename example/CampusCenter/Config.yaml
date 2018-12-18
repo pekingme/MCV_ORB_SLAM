@@ -1,0 +1,19 @@
+%YAML:1.0
+
+# ORB vocabulary file location
+Vocabulary: "/home/haodong/kdevelop_projects/MCV_ORB_SLAM/vocabulary/ORBvoc.txt"
+
+# Pre-synchronized video list file location
+SynchedVideos: "/home/haodong/kdevelop_projects/MCV_ORB_SLAM/example/CampusCenter/SynchedVideos.yaml"
+
+# SLAM setting file location
+SlamSetting: "/home/haodong/kdevelop_projects/MCV_ORB_SLAM/example/CampusCenter/SLAMSetting.yaml"
+
+# Multi-camera system calibration file location
+CameraCalibration: "/home/haodong/kdevelop_projects/MCV_ORB_SLAM/example/CampusCenter/CameraCalibration.yaml"
+
+# Output folder for any result, end with a forward slash
+OutputFolder: "/home/haodong/kdevelop_projects/MCV_ORB_SLAM/example/CampusCenter/Output/"
+
+# Reused map binary file location. Comment this for generating map (first run)
+#ReuseMap: "/home/haodong/kdevelop_projects/MCV_ORB_SLAM/example/CampusCenter/Map.bin"

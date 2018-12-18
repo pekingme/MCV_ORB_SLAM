@@ -1,0 +1,35 @@
+%YAML:1.0
+
+#--------------------------------------
+# Feature Extractor Parameters
+#--------------------------------------
+# Extractor: Number of features per image
+Extractor.FeatureCount: 1500
+# Extractor: Number of levels in the scale pyramid      
+Extractor.LevelCount: 8
+# Extractor: Scale factor between levels in the scale pyramid   
+Extractor.LevelScale: 1.2
+# 1-> learn masks, 0 don't (mdBRIEF)
+Extractor.LearnMasks: 0
+# 1-> use Agast, 0 don't
+Extractor.UseAgast: 0
+# Extractor: FAST threshold (lower less restrictive)                    
+Extractor.FastAgastThreshold: 15 #20
+# 0,1,2,(3 is only possible for agast)
+Extractor.FastAgastType: 2
+# 0-> ORB, 1->dBRIEF
+Extractor.UsemdBRIEF: 0
+# Extractor: 32 -> ORB , (16/32/64) -> dBRIEF and mdBRIEF
+Extractor.DescriptorSize: 32
+# Extractor: Score to sort features. 0 -> Harris Score, 1 -> FAST Score                 
+Extractor.ScoreType: 0
+
+#--------------------------------------
+# Viewer Parameters
+#--------------------------------------
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3

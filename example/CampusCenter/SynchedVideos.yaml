@@ -1,0 +1,20 @@
+%YAML:1.0
+---
+Videos:
+   -
+      CameraName: CameraF
+      File: "/media/haodong/TOSHIBA 1T/Data/set10/Wide_1080_60/CameraF/005.MP4"
+      Offset: 0.
+   -
+      CameraName: CameraR
+      File: "/media/haodong/TOSHIBA 1T/Data/set10/Wide_1080_60/CameraR/005.MP4"
+      Offset: 4.9514583333333334e-01
+   -
+      CameraName: CameraB
+      File: "/media/haodong/TOSHIBA 1T/Data/set10/Wide_1080_60/CameraB/005.MP4"
+      Offset: 9.1052083333333333e-01
+   -
+      CameraName: CameraL
+      File: "/media/haodong/TOSHIBA 1T/Data/set10/Wide_1080_60/CameraL/005.MP4"
+      Offset: 3.0883333333333335e-01
+MaxShift: 5.

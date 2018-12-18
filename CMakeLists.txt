@@ -34,10 +34,27 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 
 add_library(${PROJECT_NAME} SHARED
 src/utils.cpp
+src/system.cpp
+src/camera_system.cpp
+src/camera_model.cpp
+src/converter.cpp
+src/feature_extractor.cpp
+src/keyframe_database.cpp
+src/tracking.cpp
+src/local_mapping.cpp
+src/loop_closing.cpp
+src/viewer.cpp
+src/map_publisher.cpp
+src/frame_publisher.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}
 ${EIGEN3_LIBS}
 ${Pangolin_LIBRARIES}
+${PROJECT_SOURCE_DIR}/third_party/DBoW2/lib/libDBoW2.so
+${PROJECT_SOURCE_DIR}/third_party/g2o/lib/libg2o.so
 )
+
+add_executable(MCV_ORB_SLAM_example example/example.cpp)
+target_link_libraries(MCV_ORB_SLAM_example ${PROJECT_NAME})

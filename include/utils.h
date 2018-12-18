@@ -3,15 +3,15 @@
 
 #include <string>
 
-using std;
+using namespace std;
 
 namespace MCVORBSLAM
 {
-class Utils
-{
-public:
-    static bool FileExists ( const string &file_path );
-};
+    class Utils
+    {
+    public:
+        static bool FileExists ( const string &file_path );
+    };
 }
 
 #endif // UTILS_H

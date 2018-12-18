@@ -6,17 +6,17 @@ using namespace std;
 
 namespace MCVORBSLAM
 {
-bool Utils::FileExists ( const string &file_path )
-{
-    if ( FILE*file = fopen ( file_path.c_str(),  "r" ) )
+    bool Utils::FileExists ( const string &file_path )
     {
-        fclose ( file );
-        return true;
+        if ( FILE *file = fopen ( file_path.c_str(),  "r" ) )
+        {
+            fclose ( file );
+            return true;
+        }
+        else
+        {
+            cerr << "File not found: " << file_path << endl;
+            return false;
+        }
     }
-    else
-    {
-        cerr << "File not found: " << file_path << endl;
-        return false;
-    }
-}
 }
