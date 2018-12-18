@@ -5,6 +5,9 @@ namespace MCVORBSLAM
 {
     class Map
     {
+    public:
+        // Get the number of keyframes in current map.
+        int KeyFramesCount();
     };
 }
 

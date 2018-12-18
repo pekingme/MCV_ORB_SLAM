@@ -27,6 +27,7 @@ namespace MCVORBSLAM
     {
     public:
         // Initialize the processing components: tracking, local mapping, loop closing, and viewer.
+        // Should be the last step before start.
         void Initialize ( const string &yaml_path, const bool init_tracking = true, const bool init_local_mapping = true,
                           const bool init_loop_closing = true, const bool init_viewer = true );
 
@@ -36,8 +37,12 @@ namespace MCVORBSLAM
         // Load ORB vocabulary from file.
         void LoadVocabulary ( const string &vocabulary_path );
 
+        // Process the given frames captured by a camera system. Images must be synchronized.
+        // This is stateful, and will manage tracking state. Input images: BGR (CV_8UC3)
+        // or grayscale (CV_8U). BGR will be converted to grayscale if needed.
+        void TrackMultiFrame ( vector<Mat> *const multi_frame, const double &timestamp );
 
-        void SetCameraSystem ( CameraSystem *camera_system )
+        void SetCameraSystem ( CameraSystem *const camera_system )
         {
             camera_system_ = camera_system;
 

@@ -1,3 +1,10 @@
 #include "map.h"
 
-namespace MCVORBSLAM {}
+namespace MCVORBSLAM
+{
+    int Map::KeyFramesCount()
+    {
+        return 0;
+    }
+
+}

@@ -12,7 +12,11 @@ namespace MCVORBSLAM
     class FramePublisher
     {
     public:
+      // Constructor
         FramePublisher ( Map *map, const string &yaml_path );
+        
+        // Update from tracking process.
+        void Update();
     };
 }
 

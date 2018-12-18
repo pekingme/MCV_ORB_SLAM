@@ -48,6 +48,8 @@ src/map_publisher.cpp
 src/frame_publisher.cpp
 src/multi_video.cpp
 src/shift_video.cpp
+src/multi_frame.cpp
+src/map.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}

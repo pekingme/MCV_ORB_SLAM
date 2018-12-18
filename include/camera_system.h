@@ -16,11 +16,17 @@ namespace MCVORBSLAM
     class CameraSystem
     {
     public:
+        // Default constructor, should never use directly.
+        CameraSystem() {}
+
         // Utility function load a camera system calibration from YAML file.
         // Camera system pose is initialized as identity.
         static CameraSystem LoadFromYaml ( const string &yaml_path );
-        
-        int GetCameraCount() { return camera_count_; }
+
+        int GetCameraCount()
+        {
+            return camera_count_;
+        }
 
     private:
         // Inner constructor.

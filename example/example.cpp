@@ -81,6 +81,8 @@ int main ( int argc, char **argv )
         // Load synchronized video
         string video_list_path = config_file["SynchedVideos"];
         MCVORBSLAM::MultiVideo multi_video ( video_list_path );
+
+        // Set target frame rate
         multi_video.SetTargetFPS ( 20 );
 
         // Wait for user to manually start.
@@ -95,13 +97,7 @@ int main ( int argc, char **argv )
             // Read next frames
             if ( multi_video.Next ( &frames, &time_stamp, true ) )
             {
-//                 cout << endl << "frames get: " << time_stamp << endl;
-// 
-//                 for ( unsigned int i = 0; i < frames.size(); i++ )
-//                 {
-//                     namedWindow ( multi_video.GetCameraName ( i ), CV_WINDOW_NORMAL );
-//                     imshow ( multi_video.GetCameraName ( i ), frames[i] );
-//                 }
+                SLAM.TrackMultiFrame ( &frames, time_stamp );
             }
 
             // A chance to stop early.

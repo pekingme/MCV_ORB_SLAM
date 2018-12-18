@@ -19,20 +19,20 @@ namespace MCVORBSLAM
             cout << "\tDefault Map and KeyframeDatabase are created" << endl;
         }
 
-        
+
         // Create publishers used in viewer.
         map_publisher_ = new MapPublisher ( map_ );
         frame_publisher_ = new FramePublisher ( map_, yaml_path );
-        
+
         // Create tracking
-        tracking_ = new Tracking();
-        
+        tracking_ = new Tracking ( map_, frame_publisher_, feature_extractors_ );
+
         // Create local mapping
         local_mapping_ = new LocalMapping();
-        
+
         // Create loop closing
         loop_closing_ = new LoopClosing();
-        
+
         // Create viewer
         viewer_ = new Viewer ( this, frame_publisher_, map_publisher_, tracking_, yaml_path );
 
@@ -130,6 +130,24 @@ namespace MCVORBSLAM
         cout << "ORB vocabulary loaded!" << endl;
     }
 
+    void System::TrackMultiFrame ( vector< Mat > *const multi_frame, const double &timestamp )
+    {
+        // Convert to grayscale if necessary.
+        for ( unsigned int i = 0; i < multi_frame->size(); i++ )
+        {
+            if ( ( *multi_frame ) [i].type() == CV_8UC3 )
+            {
+                Mat grayscale;
+                cvtColor ( ( *multi_frame ) [i], grayscale, CV_BGR2GRAY );
+                ( *multi_frame ) [i] = grayscale;
+            }
+        }
 
+        // TODO Manage localization manual toggle
+
+        // TODO Manage reset manual toggle
+
+        tracking_->ProcessMultiFrame ( *multi_frame, timestamp );
+    }
 
 }
