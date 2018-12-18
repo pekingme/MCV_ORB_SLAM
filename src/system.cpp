@@ -9,21 +9,31 @@ namespace MCVORBSLAM
     void System::Initialize ( const string &yaml_path, const bool init_tracking, const bool init_local_mapping,
                               const bool init_loop_closing, const bool init_viewer )
     {
-        cout << endl << "Initializing SLAM system" << endl;
+        cout << endl << "Initializing SLAM system" << endl << endl;
 
         // Initialize map and keyframe database if either is NULL
         if ( map_ == NULL || keyframe_database_ == NULL )
         {
             map_ = new Map();
-            keyframe_database_ = new KeyframeDatabase();
+            keyframe_database_ = new KeyframeDatabase ( vocabulary_ );
             cout << "\tDefault Map and KeyframeDatabase are created" << endl;
         }
 
-        tracking_ = new Tracking();
-        local_mapping_ = new LocalMapping();
-        loop_closing_ = new LoopClosing();
+        
+        // Create publishers used in viewer.
         map_publisher_ = new MapPublisher ( map_ );
         frame_publisher_ = new FramePublisher ( map_, yaml_path );
+        
+        // Create tracking
+        tracking_ = new Tracking();
+        
+        // Create local mapping
+        local_mapping_ = new LocalMapping();
+        
+        // Create loop closing
+        loop_closing_ = new LoopClosing();
+        
+        // Create viewer
         viewer_ = new Viewer ( this, frame_publisher_, map_publisher_, tracking_, yaml_path );
 
         if ( init_local_mapping )

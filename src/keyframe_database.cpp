@@ -1,3 +1,9 @@
 #include "keyframe_database.h"
 
-namespace MCVORBSLAM {}
+namespace MCVORBSLAM {
+    KeyframeDatabase::KeyframeDatabase ( ORBVocabulary *vocabulary )
+    {
+
+    }
+
+}

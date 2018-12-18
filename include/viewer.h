@@ -13,6 +13,7 @@ using namespace std;
 namespace MCVORBSLAM
 {
     class System;
+    class Tracking;
     
     class Viewer
     {

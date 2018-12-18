@@ -1,6 +1,7 @@
 #include "utils.h"
 #include "system.h"
 #include "camera_system.h"
+#include "multi_video.h"
 
 #include <vector>
 #include <string>
@@ -75,11 +76,45 @@ int main ( int argc, char **argv )
         SLAM.LoadVocabulary ( vocabulary_path );
 
         // Initialize tracking, local mapping, loop closing and viewer
-        SLAM.Initialize(setting_yaml_path);
+        SLAM.Initialize ( setting_yaml_path );
 
         // Load synchronized video
-        // Main loop to perform SLAM with sampled frames
-        // Save map bundle to result
+        string video_list_path = config_file["SynchedVideos"];
+        MCVORBSLAM::MultiVideo multi_video ( video_list_path );
+        multi_video.SetTargetFPS ( 20 );
+
+        // Wait for user to manually start.
+        cvWaitKey ( 0 );
+
+        // Main loop to perform SLAM with sampled frames.
+        vector<Mat> frames;
+        double time_stamp;
+
+        while ( multi_video.HasNext() )
+        {
+            // Read next frames
+            if ( multi_video.Next ( &frames, &time_stamp, true ) )
+            {
+//                 cout << endl << "frames get: " << time_stamp << endl;
+// 
+//                 for ( unsigned int i = 0; i < frames.size(); i++ )
+//                 {
+//                     namedWindow ( multi_video.GetCameraName ( i ), CV_WINDOW_NORMAL );
+//                     imshow ( multi_video.GetCameraName ( i ), frames[i] );
+//                 }
+            }
+
+            // A chance to stop early.
+            char enter = cvWaitKey ( 1 );
+
+            if ( enter == 'q' )
+            {
+                break;
+            }
+        }
+
+        // TODO Save map bundle to result
+
         break;
     }
 

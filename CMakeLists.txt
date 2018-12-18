@@ -46,6 +46,8 @@ src/loop_closing.cpp
 src/viewer.cpp
 src/map_publisher.cpp
 src/frame_publisher.cpp
+src/multi_video.cpp
+src/shift_video.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}

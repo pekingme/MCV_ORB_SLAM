@@ -21,6 +21,7 @@ using namespace std;
 namespace MCVORBSLAM
 {
     class Viewer;
+    class Tracking;
 
     class System
     {
