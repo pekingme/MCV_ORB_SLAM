@@ -1,6 +1,8 @@
 #ifndef CAMERAPOSE_H
 #define CAMERAPOSE_H
 
+# include "camera_system.h"
+
 # include <vector>
 
 # include "opencv2/opencv.hpp"
@@ -13,6 +15,11 @@ namespace MCVORBSLAM
     class CameraSystemPose
     {
     public:
+        // Default constructor, should never use this.
+        CameraSystemPose() {}
+        
+        // Actual constructor.
+        CameraSystemPose(const CameraSystem& camera_system);
 
         // Camera system pose: Pt_world = {pose} * Pt_system
         Matx44d pose_;

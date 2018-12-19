@@ -26,7 +26,7 @@ namespace MCVORBSLAM
     public:
 
         // Constructor
-        Tracking ( Map *const map, FramePublisher *const frame_publisher, const vector<FeatureExtractor *> &extractors );
+        Tracking ( Map *const map, FramePublisher *const frame_publisher, const CameraSystem &camera_system_, const vector<FeatureExtractor *> &extractors );
 
         // Tracking states enum.
         enum TrackingState
@@ -87,6 +87,9 @@ namespace MCVORBSLAM
         // Frame publisher
         FramePublisher *frame_publisher_;
 
+        // Camera system calibration
+        CameraSystem camera_system_;
+
         // Feature extractors
         vector<FeatureExtractor *> extractors_;
 
@@ -110,7 +113,7 @@ namespace MCVORBSLAM
         Matx44d velocity_;
 
         // Last relocalized multi frame id
-        int last_relocalized_frame_id_;
+        size_t last_relocalized_frame_id_;
 
         // Motion model is in use
         bool use_motion_model;

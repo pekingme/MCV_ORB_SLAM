@@ -25,7 +25,7 @@ namespace MCVORBSLAM
         frame_publisher_ = new FramePublisher ( map_, yaml_path );
 
         // Create tracking
-        tracking_ = new Tracking ( map_, frame_publisher_, feature_extractors_ );
+        tracking_ = new Tracking ( map_, frame_publisher_, camera_system_, feature_extractors_);
 
         // Create local mapping
         local_mapping_ = new LocalMapping();
@@ -82,7 +82,7 @@ namespace MCVORBSLAM
         assert ( descriptor_size == 16 || descriptor_size == 32 || descriptor_size == 64 );
         assert ( score_type == 0 || score_type == 1 );
 
-        int camera_count = camera_system_->GetCameraCount();
+        int camera_count = camera_system_.GetCameraCount();
         feature_extractors_.resize ( camera_count );
 
         for ( int c = 0; c < camera_count; c++ )

@@ -67,7 +67,7 @@ int main ( int argc, char **argv )
         // Load camera system to System
         string camera_system_yaml_path = config_file["CameraCalibration"];
         MCVORBSLAM::CameraSystem camera_system = MCVORBSLAM::CameraSystem::LoadFromYaml ( camera_system_yaml_path );
-        SLAM.SetCameraSystem ( &camera_system );
+        SLAM.SetCameraSystem ( camera_system );
 
         // Load extractors and vocabulary to System
         string setting_yaml_path = config_file["SlamSetting"];

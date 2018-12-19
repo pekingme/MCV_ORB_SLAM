@@ -7,8 +7,8 @@ endif()
 
 message("Build type: " ${CMAKE_BUILD_TYPE})
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -O3 -march=native -std=c++11")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -march=native -std=c++11")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp -Wall -O3 -march=native -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -Wall -O3 -march=native -std=c++11")
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
@@ -37,6 +37,7 @@ src/utils.cpp
 src/system.cpp
 src/camera_system.cpp
 src/camera_model.cpp
+src/camera_system_pose.cpp
 src/converter.cpp
 src/feature_extractor.cpp
 src/keyframe_database.cpp

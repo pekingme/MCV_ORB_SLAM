@@ -4,8 +4,8 @@
 namespace MCVORBSLAM
 {
 
-    Tracking::Tracking ( Map *const map, FramePublisher *const frame_publisher, const vector<FeatureExtractor *> &extractors )
-        : map_ ( map ), frame_publisher_ ( frame_publisher ), extractors_ ( extractors )
+    Tracking::Tracking ( Map *const map, FramePublisher *const frame_publisher, const CameraSystem &camera_system, const vector<FeatureExtractor *> &extractors )
+        : map_ ( map ), frame_publisher_ ( frame_publisher ), camera_system_ ( camera_system ), extractors_ ( extractors )
     {
 
     }
@@ -16,14 +16,14 @@ namespace MCVORBSLAM
         // Extract features based on current tracking state.
         if ( current_state_ == WORKING || current_state_ == LOST )
         {
-            current_frame_ = new MultiFrame ( multi_frame, timestamp, extractors_ );
+            current_frame_ = new MultiFrame ( multi_frame, timestamp, camera_system_, extractors_, false);
         }
         else
         {
-            current_frame_ = new MultiFrame ( multi_frame, timestamp, extractors_ );
+            current_frame_ = new MultiFrame ( multi_frame, timestamp, camera_system_, extractors_, true);
         }
 
-        // Notify local mapping and loop closing the frame info.
+        // TODO Notify local mapping and loop closing the frame info.
 
         Track();
     }

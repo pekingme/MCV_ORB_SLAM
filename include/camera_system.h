@@ -23,7 +23,14 @@ namespace MCVORBSLAM
         // Camera system pose is initialized as identity.
         static CameraSystem LoadFromYaml ( const string &yaml_path );
 
-        int GetCameraCount()
+
+
+        CameraModel GetCameraModel ( const int camera_index ) const
+        {
+            return camera_models_[camera_index];
+        }
+
+        int GetCameraCount() const
         {
             return camera_count_;
         }

@@ -42,7 +42,7 @@ namespace MCVORBSLAM
         // or grayscale (CV_8U). BGR will be converted to grayscale if needed.
         void TrackMultiFrame ( vector<Mat> *const multi_frame, const double &timestamp );
 
-        void SetCameraSystem ( CameraSystem *const camera_system )
+        void SetCameraSystem ( const CameraSystem &camera_system )
         {
             camera_system_ = camera_system;
 
@@ -51,7 +51,7 @@ namespace MCVORBSLAM
 
     private:
         // Camera system calibration for current video set related functions.
-        CameraSystem *camera_system_;
+        CameraSystem camera_system_;
 
         // Extractors coupled with cameras in camera system
         vector<FeatureExtractor *> feature_extractors_;
