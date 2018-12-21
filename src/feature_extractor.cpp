@@ -1,9 +1,12 @@
 #include "feature_extractor.h"
 
+#include <list>
+
 namespace MCVORBSLAM
 {
     const int EDGE_THRESHOLD = 19;
     const int PATCH_SIZE = 32;
+    const int HALF_PATCH_SIZE = 16;
 
     FeatureExtractor::FeatureExtractor ( const int feature_count, const int level_count, const float level_scale, const bool learn_mask,
                                          const bool use_agast, const int fast_agast_threshold, const int fast_agast_type,
@@ -237,7 +240,7 @@ namespace MCVORBSLAM
 
             vector<KeyPoint> &level_keypoints = ( *keypoints ) [level];
             level_keypoints.reserve ( feature_count_ );
-            DistributeOctTree ( keypoints_temp, &level_keypoints, border_x_min, border_x_max, border_y_min, border_y_max, level );
+            DistributeOctree ( keypoints_temp, &level_keypoints, border_x_min, border_x_max, border_y_min, border_y_max, level );
 
             const int scaled_patch_size = PATCH_SIZE * scale_factors_[level];
 
@@ -262,19 +265,345 @@ namespace MCVORBSLAM
             const vector< Vec2d > &undistorted_keypoints, const CameraModel &camera_model, Mat *level_descriptors, Mat *level_descriptor_masks )
     {
 
+    
     }
 
-    void FeatureExtractor::DistributeOctTree ( const vector< KeyPoint > &keypoints, vector< KeyPoint > *level_keypoints,
+    void FeatureExtractor::DistributeOctree ( const vector< KeyPoint > &keypoints, vector< KeyPoint > *level_keypoints,
             const int border_x_min, const int border_x_max,
             const int border_y_min, const int border_y_max,
             const int level )
     {
+        // Compute the number of initial nodes, determined by the ratio of the area.
+        const int init_node_count = cvRound ( static_cast<double> ( border_x_max - border_x_min ) / ( border_y_max - border_y_min ) );
+        const int node_width = static_cast<double> ( border_x_max - border_x_min ) / init_node_count;
 
+        list<OctreeNode> nodes;
+
+        // Create initial nodes.
+        vector<OctreeNode *> init_nodes;
+        init_nodes.resize ( init_node_count );
+
+        for ( int i = 0; i < init_node_count; i++ )
+        {
+            OctreeNode node;
+            node.left_ = node_width * static_cast<double> ( i );
+            node.right_ = node_width * static_cast<double> ( i + 1 );
+            node.up_ = 0;
+            node.bottom_ = border_y_max - border_y_min;
+            node.keypoints_.reserve ( keypoints.size() );
+
+            nodes.push_back ( node );
+            init_nodes[i] = &node;
+        }
+
+        // Assign keypoints to initial nodes.
+        for ( size_t i = 0; i < keypoints.size(); i++ )
+        {
+            const KeyPoint &keypoint = keypoints[i];
+            init_nodes[keypoint.pt.x / node_width]->keypoints_.push_back ( keypoint );
+        }
+
+        // Remove empty nodes and set flag if only has one keypoint.
+        list<OctreeNode>::iterator node_it = nodes.begin();
+
+        while ( node_it != nodes.end() )
+        {
+            if ( node_it->keypoints_.size() == 1 )
+            {
+                node_it->no_more_child_ = true;
+                node_it++;
+            }
+            else if ( node_it->keypoints_.empty() )
+            {
+                node_it = nodes.erase ( node_it );
+            }
+            else
+            {
+                node_it++;
+            }
+        }
+
+        // Loop through all nodes need to be processed.
+        bool done = false;
+        vector<pair<int, list<OctreeNode>::iterator>> keypoint_count_and_node;
+        keypoint_count_and_node.reserve ( nodes.size() * 4 );
+
+        while ( !done )
+        {
+            int nodes_count_to_expand = 0;
+
+            keypoint_count_and_node.clear();
+
+            node_it = nodes.begin();
+
+            while ( node_it != nodes.end() )
+            {
+                if ( node_it->no_more_child_ )
+                {
+                    // If node only contains one keypoint, don't divide
+                    node_it++;
+                }
+                else
+                {
+                    // Divide node if it has more than 1 keypoints
+                    OctreeNode node_ul, node_ur, node_bl, node_br;
+                    node_it->DivideNode ( &node_ul, &node_ur, &node_bl, &node_br );
+
+                    // Add child nodes if they contain keypoints.
+                    if ( node_ul.keypoints_.size() > 0 )
+                    {
+                        nodes.push_front ( node_ul );
+
+                        if ( node_ul.keypoints_.size() > 1 )
+                        {
+                            nodes_count_to_expand ++;
+                            keypoint_count_and_node.push_back ( make_pair ( node_ul.keypoints_.size(), nodes.begin() ) );
+                        }
+                    }
+
+                    if ( node_ur.keypoints_.size() > 0 )
+                    {
+                        nodes.push_front ( node_ur );
+
+                        if ( node_ur.keypoints_.size() > 1 )
+                        {
+                            nodes_count_to_expand ++;
+                            keypoint_count_and_node.push_back ( make_pair ( node_ur.keypoints_.size(), nodes.begin() ) );
+                        }
+                    }
+
+                    if ( node_bl.keypoints_.size() > 0 )
+                    {
+                        nodes.push_front ( node_bl );
+
+                        if ( node_bl.keypoints_.size() > 1 )
+                        {
+                            nodes_count_to_expand ++;
+                            keypoint_count_and_node.push_back ( make_pair ( node_bl.keypoints_.size(), nodes.begin() ) );
+                        }
+                    }
+
+                    if ( node_br.keypoints_.size() > 0 )
+                    {
+                        nodes.push_front ( node_br );
+
+                        if ( node_br.keypoints_.size() > 1 )
+                        {
+                            nodes_count_to_expand ++;
+                            keypoint_count_and_node.push_back ( make_pair ( node_br.keypoints_.size(), nodes.begin() ) );
+                        }
+                    }
+
+                    node_it = nodes.erase ( node_it );
+                }
+            }
+
+            if ( ( int ) nodes.size() >= level_feature_count_[level] || nodes_count_to_expand == 0 )
+            {
+                // Finish if there are more nodes than required features or no nodes to divide
+                done = true;
+            }
+            else if ( ( int ) nodes.size() + 3 * nodes_count_to_expand > level_feature_count_[level] )
+            {
+                // If the next level potentially has more nodes than required, divide the nodes
+                // in the descending order of number of keypoints it contains.
+                while ( !done )
+                {
+                    nodes_count_to_expand = 0;
+                    vector<pair<int, list<OctreeNode>::iterator>> keypoint_count_and_node_temp = keypoint_count_and_node;
+                    keypoint_count_and_node.clear();
+
+                    sort ( keypoint_count_and_node_temp.begin(), keypoint_count_and_node.end(),
+                           [] ( pair<int, list<OctreeNode>::iterator> &left, pair<int, list<OctreeNode>::iterator> &right )
+                    {
+                        return left.first < right.first;
+                    } );
+
+                    for ( int i = keypoint_count_and_node_temp.size() - 1; i >= 0; i-- )
+                    {
+                        OctreeNode node_ul, node_ur, node_bl, node_br;
+                        keypoint_count_and_node_temp[i].second->DivideNode ( &node_ul, &node_ur, &node_bl, &node_br );
+
+                        // Add child nodes if they contain keypoints.
+                        if ( node_ul.keypoints_.size() > 0 )
+                        {
+                            nodes.push_front ( node_ul );
+
+                            if ( node_ul.keypoints_.size() > 1 )
+                            {
+                                nodes_count_to_expand ++;
+                                keypoint_count_and_node.push_back ( make_pair ( node_ul.keypoints_.size(), nodes.begin() ) );
+                            }
+                        }
+
+                        if ( node_ur.keypoints_.size() > 0 )
+                        {
+                            nodes.push_front ( node_ur );
+
+                            if ( node_ur.keypoints_.size() > 1 )
+                            {
+                                nodes_count_to_expand ++;
+                                keypoint_count_and_node.push_back ( make_pair ( node_ur.keypoints_.size(), nodes.begin() ) );
+                            }
+                        }
+
+                        if ( node_bl.keypoints_.size() > 0 )
+                        {
+                            nodes.push_front ( node_bl );
+
+                            if ( node_bl.keypoints_.size() > 1 )
+                            {
+                                nodes_count_to_expand ++;
+                                keypoint_count_and_node.push_back ( make_pair ( node_bl.keypoints_.size(), nodes.begin() ) );
+                            }
+                        }
+
+                        if ( node_br.keypoints_.size() > 0 )
+                        {
+                            nodes.push_front ( node_br );
+
+                            if ( node_br.keypoints_.size() > 1 )
+                            {
+                                nodes_count_to_expand ++;
+                                keypoint_count_and_node.push_back ( make_pair ( node_br.keypoints_.size(), nodes.begin() ) );
+                            }
+                        }
+
+                        nodes.erase ( keypoint_count_and_node_temp[i].second );
+
+                        if ( ( int ) nodes.size() >= level_feature_count_[level] )
+                        {
+                            break;
+                        }
+                    }
+
+                    if ( ( int ) nodes.size() >= level_feature_count_[level] || nodes_count_to_expand == 0 )
+                    {
+                        done = true;
+                    }
+                }
+            }
+        }
+
+        // Retain the best keypoint in each node.
+        level_keypoints->reserve ( feature_count_ );
+
+        for ( list<OctreeNode>::iterator node_it = nodes.begin(); node_it != nodes.end(); node_it++ )
+        {
+            vector<KeyPoint> &node_keypoints = node_it->keypoints_;
+            KeyPoint *best_keypoint = &node_keypoints[0];
+            float max_response = best_keypoint->response;
+
+            for ( size_t i = 1; i < node_keypoints.size(); i++ )
+            {
+                if ( node_keypoints[i].response > max_response )
+                {
+                    best_keypoint = &node_keypoints[i];
+                    max_response = node_keypoints[i].response;
+                }
+            }
+        }
     }
 
     void FeatureExtractor::ComputeOrientation ( const Mat &image, vector< KeyPoint > *level_keypoints )
     {
+        for ( vector<KeyPoint>::iterator keypoint = level_keypoints->begin();
+                keypoint != level_keypoints->end(); keypoint++ )
+        {
+            int m_01 = 0, m_10 = 0;
 
+            const uchar *center = &image.at<uchar> ( cvRound ( keypoint->pt.y ), cvRound ( keypoint->pt.x ) );
+
+            // Treat the center line differently, v=0
+            for ( int u = -HALF_PATCH_SIZE; u <= HALF_PATCH_SIZE; ++u )
+                m_10 += u * center[u];
+
+            // Go line by line in the circuI853lar patch
+            int step = ( int ) image.step1();
+
+            for ( int v = 1; v <= HALF_PATCH_SIZE; ++v )
+            {
+                // Proceed over the two lines
+                int v_sum = 0;
+                int d = patch_bound_u_[v];
+
+                for ( int u = -d; u <= d; ++u )
+                {
+                    int val_plus = center[u + v * step], val_minus = center[u - v * step];
+                    v_sum += ( val_plus - val_minus );
+                    m_10 += u * ( val_plus + val_minus );
+                }
+
+                m_01 += v * v_sum;
+            }
+
+            keypoint->angle = fastAtan2 ( ( float ) m_01, ( float ) m_10 );
+        }
+    }
+
+    void OctreeNode::DivideNode ( OctreeNode *node_ul, OctreeNode *node_ur, OctreeNode *node_bl, OctreeNode *node_br )
+    {
+        const int mid_x = left_ + ceil ( static_cast<double> ( right_ - left_ ) / 2.0 );
+        const int mid_y = up_ + ceil ( static_cast<double> ( bottom_ - up_ ) / 2.0 );
+
+        // Define boundary of upper left node.
+        node_ul->left_ = left_;
+        node_ul->up_ = up_;
+        node_ul->right_ = mid_x;
+        node_ul->bottom_ = mid_y;
+
+        // Define boundary of upper right node.
+        node_ur->up_ = up_;
+        node_ur->right_ = right_;
+        node_ur->left_ = mid_x;
+        node_ur->bottom_ = mid_y;
+
+        // Define boundary of bottom left node.
+        node_bl->bottom_ = bottom_;
+        node_bl->left_ = left_;
+        node_bl->right_ = mid_x;
+        node_bl->up_ = mid_y;
+
+        // Define boundary of bottom right node.
+        node_br->bottom_ = bottom_;
+        node_br->right_ = right_;
+        node_br->left_ = mid_x;
+        node_br->up_ = mid_y;
+
+        // Associate keypoints to children nodes.
+        for ( size_t i = 0; i < keypoints_.size(); i++ )
+        {
+            KeyPoint &keypoint = keypoints_[i];
+
+            if ( keypoint.pt.x < mid_x )
+            {
+                if ( keypoint.pt.y < mid_y )
+                {
+                    node_ul->keypoints_.push_back ( keypoint );
+                }
+                else
+                {
+                    node_bl->keypoints_.push_back ( keypoint );
+                }
+            }
+            else
+            {
+                if ( keypoint.pt.y < mid_y )
+                {
+                    node_ur->keypoints_.push_back ( keypoint );
+                }
+                else
+                {
+                    node_br->keypoints_.push_back ( keypoint );
+                }
+            }
+        }
+
+        // Set child flag
+        node_ul->no_more_child_ = node_ul->keypoints_.size() <= 1;
+        node_ur->no_more_child_ = node_ur->keypoints_.size() <= 1;
+        node_bl->no_more_child_ = node_bl->keypoints_.size() <= 1;
+        node_br->no_more_child_ = node_br->keypoints_.size() <= 1;
     }
 
 }

@@ -4,6 +4,7 @@
 # include "camera_model.h"
 
 # include <vector>
+# include <list>
 
 # include "opencv2/opencv.hpp"
 
@@ -12,6 +13,31 @@ using namespace std;
 
 namespace MCVORBSLAM
 {
+    // Octree node used for construct features in each level.
+    class OctreeNode
+    {
+    public:
+        OctreeNode() : no_more_child_ ( false ) {}
+
+        void DivideNode ( OctreeNode *node_ul, OctreeNode *node_ur,
+                          OctreeNode *node_bl, OctreeNode *node_br );
+
+        // All keypoints in this node
+        vector<KeyPoint> keypoints_;
+
+        // Left boundary
+        int left_;
+        // Right boundary
+        int right_;
+        // Up boundary
+        int up_;
+        // Bottom boundary
+        int bottom_;
+
+        // Flag for no more child in this node.
+        bool no_more_child_;
+    };
+
     // Feature extractor detects keypoints from frame in pyramid levels and computes the
     // descriptors. Keypoints detection options include using FAST and AGAST algorithm;
     // BRIEF (as ORB), distorted BRIEF, and masked distorted BRIEF descriptors can be extracted.
@@ -48,8 +74,8 @@ namespace MCVORBSLAM
         void ComputeDescriptors ( const Mat &level_image, const vector< KeyPoint > &level_keypoints, const vector< Vec2d > &undistorted_keypoints,
                                   const CameraModel &camera_model, Mat *level_descriptors, Mat *level_descriptor_masks );
 
-        // Distribute keypoints to its level.
-        void DistributeOctTree ( const vector< KeyPoint > &keypoints, vector< KeyPoint > *level_keypoints,
+        // Distribute keypoints to its level based on octree nodes.
+        void DistributeOctree ( const vector< KeyPoint > &keypoints, vector< KeyPoint > *level_keypoints,
                                  const int border_x_min, const int border_x_max,
                                  const int border_y_min, const int border_y_max,
                                  const int level );
