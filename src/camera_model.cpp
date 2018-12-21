@@ -9,7 +9,7 @@ namespace MCVORBSLAM
           c_ ( affine[0] ), d_ ( affine[1] ), e_ ( affine[2] ), inv_affine_ ( c_ - d_ * e_ ),
           poly_ ( poly ), poly_degree_ ( poly.size() ), inv_poly_ ( inv_poly ), inv_poly_degree_ ( inv_poly_.size() ) {}
 
-    void CameraModel::ImageToCamera ( const double u, const double v, double *x, double *y, double *z )
+    void CameraModel::ImageToCamera ( const double u, const double v, double *x, double *y, double *z ) const
     {
         const double u_t = u - u0_;
         const double v_t = v - v0_;
@@ -27,4 +27,13 @@ namespace MCVORBSLAM
         *y /= norm;
         *z /= norm;
     }
+
+    void CameraModel::UndistortPoints ( const double in_x, const double in_y, const double focal_length, double *out_x, double *out_y ) const
+    {
+        double x, y, z;
+        ImageToCamera ( in_x, in_y, &x, &y, &z );
+        *out_x = x / z * focal_length;
+        *out_y = y / z * focal_length;
+    }
+
 }

@@ -22,8 +22,11 @@ namespace MCVORBSLAM
         // Calculate coordinates respect to camera coordinate system based on point on image.
         // Input: (u, v) - coordinates on image with left-top corner as origin.
         // Output: (x, y, z) - 3D scene point, positive direction: right, down, forward.
-        void ImageToCamera ( const double u, const double v, double *x, double *y, double *z );
+        void ImageToCamera ( const double u, const double v, double *x, double *y, double *z ) const;
 
+        // Reproject the input image point to the image based on its ray.
+        void UndistortPoints(const double in_x, const double in_y, const double focal_length, double* out_x, double* out_y) const;
+        
         int GetWidth()
         {
             return width_;
@@ -34,7 +37,12 @@ namespace MCVORBSLAM
             return height_;
         }
 
-        Mat GetMirrorMask ( int level )
+        vector<double> GetPoly() const
+        {
+            return poly_;
+        }
+
+        Mat GetMirrorMask ( int level ) const
         {
             return mirror_masks_[level];
         }
