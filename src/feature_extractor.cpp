@@ -4,6 +4,7 @@
 
 namespace MCVORBSLAM
 {
+    const double RAD_IN_DEGREE = CV_PI / 180.0;
     const int EDGE_THRESHOLD = 19;
     const int PATCH_SIZE = 32;
     const int HALF_PATCH_SIZE = 16;
@@ -15,10 +16,62 @@ namespace MCVORBSLAM
           use_agast_ ( use_agast ), fast_agast_threshold_ ( fast_agast_threshold ), fast_agast_type_ ( fast_agast_type ),
           use_distorted_brief_ ( use_distorted_brief ), descriptor_size_ ( descriptor_size ), score_type_ ( score_type )
     {
-        // TODO scale factors
-        // TODO assign pattern
-        // TODO assign patch bound u
+        // Calculate scale factors for all levels.
+        scale_factors_.resize ( level_count );
+        scale_factors_[0] = 1.0;
 
+        double level_scale_inv_sum = 1.0;
+
+        for ( int i = 1; i < level_count; i++ )
+        {
+            scale_factors_[i] = scale_factors_[i - 1] * level_scale;
+            level_scale_inv_sum += 1.0 / scale_factors_[i];
+        }
+
+        // Distribute keypoint number for each level
+        level_feature_count_.resize ( level_count );
+
+        int feature_total = 0;
+
+        for ( int i = 0; i < level_count - 1; i++ )
+        {
+            level_feature_count_[i] = cvRound ( feature_count / level_scale_inv_sum * ( 1.0 / scale_factors_[i] ) );
+            feature_total += level_feature_count_[i];
+        }
+
+        level_feature_count_[level_count - 1] = max ( feature_count - feature_total, 0 );
+
+
+        // Assign pattern
+        const int sample_count = 2 * 8 * descriptor_size;
+        const Point *pattern_start = ( const Point * ) LEARNED_PATTERN_ORB_64;
+        copy ( pattern_start, pattern_start + sample_count, back_inserter ( pattern_ ) );
+
+        // Calculate boundary of circular patch for orientation calculation.
+        patch_bound_u_.resize ( HALF_PATCH_SIZE + 1 );
+
+
+        int vmax = cvFloor ( HALF_PATCH_SIZE * sqrt ( 2.f ) / 2 + 1 );
+        int vmin = cvCeil ( HALF_PATCH_SIZE * sqrt ( 2.f ) / 2 );
+        const double hp2 = HALF_PATCH_SIZE * HALF_PATCH_SIZE;
+
+        for ( int v = 0; v <= vmax; ++v )
+        {
+            patch_bound_u_[v] = cvRound ( sqrt ( hp2 - v * v ) );
+        }
+
+        // Make sure we are symmetric
+        for ( int v = HALF_PATCH_SIZE, v0 = 0; v >= vmin; --v, ++v0 )
+        {
+            while ( patch_bound_u_[v0] == patch_bound_u_[v0 + 1] )
+            {
+                ++v0;
+            }
+
+            // Very tricky way to do this...
+            patch_bound_u_[v] = v0;
+            ++v0;
+        }
     }
 
     void FeatureExtractor::operator() ( InputArray frame, vector<KeyPoint> *keypoints, const CameraModel &camera_model,
@@ -92,11 +145,11 @@ namespace MCVORBSLAM
             {
                 for ( int i = 0; i < level_keypoints_count; i++ )
                 {
-                    camera_model.UndistortPoints ( static_cast<double> ( level_keypoints[i].pt.x * scale ),
-                                                   static_cast<double> ( level_keypoints[i].pt.y * scale ),
-                                                   focal_length,
-                                                   & ( undistorted_keypoints[i] ( 0 ) ),
-                                                   & ( undistorted_keypoints[i] ( 1 ) ) );
+                    camera_model.UndistortPoint ( static_cast<double> ( level_keypoints[i].pt.x * scale ),
+                                                  static_cast<double> ( level_keypoints[i].pt.y * scale ),
+                                                  focal_length,
+                                                  & ( undistorted_keypoints[i] ( 0 ) ),
+                                                  & ( undistorted_keypoints[i] ( 1 ) ) );
                 }
             }
 
@@ -264,8 +317,38 @@ namespace MCVORBSLAM
     void FeatureExtractor::ComputeDescriptors ( const Mat &level_image, const vector< KeyPoint > &level_keypoints,
             const vector< Vec2d > &undistorted_keypoints, const CameraModel &camera_model, Mat *level_descriptors, Mat *level_descriptor_masks )
     {
+        level_descriptors->create ( ( int ) level_keypoints.size(), descriptor_size_, CV_8UC1 );
+        level_descriptor_masks->create ( ( int ) level_keypoints.size(), descriptor_size_, CV_8UC1 );
 
-    
+        if ( learn_mask_ )
+        {
+            #pragma omp parallel for num_threads(2)
+
+            for ( size_t i = 0; i < level_keypoints.size(); ++i )
+            {
+                ComputeMaskedDistortedDescriptors ( level_image, level_keypoints[i], undistorted_keypoints[i],
+                                                    camera_model, level_descriptors->ptr<uchar> ( i ), level_descriptor_masks->ptr<uchar> ( i ) );
+            }
+        }
+        else if ( use_distorted_brief_ )
+        {
+            #pragma omp parallel for num_threads(2)
+
+            for ( size_t i = 0; i < level_keypoints.size(); ++i )
+            {
+                ComputeDistortedDescriptors ( level_image, level_keypoints[i], undistorted_keypoints[i],
+                                              camera_model, level_descriptors->ptr<uchar> ( i ) );
+            }
+        }
+        else
+        {
+            #pragma omp parallel for num_threads(2)
+
+            for ( size_t i = 0; i < level_keypoints.size(); ++i )
+            {
+                ComputeORBDescriptors ( level_image, level_keypoints[i], camera_model, level_descriptors->ptr<uchar> ( i ) );
+            }
+        }
     }
 
     void FeatureExtractor::DistributeOctree ( const vector< KeyPoint > &keypoints, vector< KeyPoint > *level_keypoints,
@@ -508,7 +591,7 @@ namespace MCVORBSLAM
     void FeatureExtractor::ComputeOrientation ( const Mat &image, vector< KeyPoint > *level_keypoints )
     {
         for ( vector<KeyPoint>::iterator keypoint = level_keypoints->begin();
-                keypoint != level_keypoints->end(); keypoint++ )
+              keypoint != level_keypoints->end(); keypoint++ )
         {
             int m_01 = 0, m_10 = 0;
 
@@ -538,6 +621,201 @@ namespace MCVORBSLAM
             }
 
             keypoint->angle = fastAtan2 ( ( float ) m_01, ( float ) m_10 );
+        }
+    }
+
+    void FeatureExtractor::ComputeMaskedDistortedDescriptors ( const Mat &image, const KeyPoint &keypoint, const Point2d &undistorted_keypoint,
+            const CameraModel &camera_model, uchar *descriptor, uchar *descriptor_mask )
+    {
+        vector<Point> rotated_distorted_pattern ( pattern_.size() );
+
+        RotateAndDistortPattern ( &rotated_distorted_pattern, keypoint.angle, undistorted_keypoint, camera_model );
+
+        vector<vector<Point>> mask_pattern ( 2, vector<Point> ( pattern_.size() ) );
+
+        RotateAndDistortPattern ( &mask_pattern[0], keypoint.angle + 20.0, undistorted_keypoint, camera_model );
+        RotateAndDistortPattern ( &mask_pattern[1], keypoint.angle - 20.0, undistorted_keypoint, camera_model );
+
+        const Point *pattern = &rotated_distorted_pattern[0];
+        const Point *mask_pattern_1 = &mask_pattern[0][0];
+        const Point *mask_pattern_2 = &mask_pattern[1][0];
+        const uchar *center = 0;
+
+        int ix = 0, iy = 0;
+
+        int row = cvRound ( keypoint.pt.y );
+        int col = cvRound ( keypoint.pt.x );
+
+#define GET_VALUE(idx) \
+    ( ix = pattern[idx].x, \
+      iy = pattern[idx].y, \
+      center = image.ptr<uchar>(row+iy),\
+      center[col+ix] )
+#define GET_VALUE_MASK1(idx) \
+    ( ix = mask_pattern_1[idx].x, \
+      iy = mask_pattern_2[idx].y, \
+      center = image.ptr<uchar>(row+iy),\
+      center[col+ix] )
+#define GET_VALUE_MASK2(idx) \
+    ( ix = mask_pattern_2[idx].x, \
+      iy = mask_pattern_2[idx].y, \
+      center = image.ptr<uchar>(row+iy),\
+      center[col+ix] )
+
+        for ( int i = 0; i < descriptor_size_; ++i, pattern += 16, mask_pattern_1 += 16, mask_pattern_2 += 16 )
+        {
+            int temp_val;
+            int t0, t1, val = 0, maskVal = 0;
+            int mask1_1, mask1_2, mask2_1, mask2_2, stable_val = 0;
+
+            for ( int j = 0; j < 8; j++ )
+            {
+                stable_val = 0;
+                t0 = GET_VALUE ( j * 2 );
+                t1 = GET_VALUE ( j * 2 + 1 );
+                temp_val = t0 < t1;
+                val |= temp_val << j;
+                mask1_1 = GET_VALUE_MASK1 ( j * 2 );
+                mask1_2 = GET_VALUE_MASK1 ( j * 2 + 1 );           // mask1
+                mask2_1 = GET_VALUE_MASK2 ( j * 2 );
+                mask2_2 = GET_VALUE_MASK2 ( j * 2 + 1 );           // mask2
+                stable_val += ( mask1_1 < mask1_2 ) ^ temp_val;
+                stable_val += ( mask2_1 < mask2_2 ) ^ temp_val;
+                maskVal |= ( stable_val == 0 ) << j;
+            }
+
+            descriptor[i] = ( uchar ) val;
+            descriptor_mask[i] = ( uchar ) maskVal;
+        }
+
+#undef GET_VALUE
+#undef GET_VALUE_MASK1
+#undef GET_VALUE_MASK2
+    }
+
+    void FeatureExtractor::ComputeDistortedDescriptors ( const Mat &image, const KeyPoint &keypoint, const Point2d &undistorted_keypoint,
+            const CameraModel &camera_model, uchar *descriptor )
+    {
+        vector<Point> rotated_distorted_pattern ( pattern_.size() );
+
+        RotateAndDistortPattern ( &rotated_distorted_pattern, keypoint.angle, undistorted_keypoint, camera_model );
+
+        const Point *pattern = &rotated_distorted_pattern[0];
+        const uchar *center = 0;
+
+        int ix = 0, iy = 0;
+
+        int row = cvRound ( keypoint.pt.y );
+        int col = cvRound ( keypoint.pt.x );
+
+#define GET_VALUE(idx) \
+    ( ix = pattern[idx].x, \
+      iy = pattern[idx].y, \
+      center = image.ptr<uchar>(row+iy),\
+      center[col+ix] )
+
+        for ( int i = 0; i < descriptor_size_; ++i, pattern += 16 )
+        {
+            int t0, t1, val = 0;
+
+            for ( int j = 0; j < 8; j++ )
+            {
+                t0 = GET_VALUE ( 2 * j );
+                t1 = GET_VALUE ( 2 * j + 1 );
+                val |= ( t0 < t1 ) << j;
+            }
+
+            descriptor[i] = ( uchar ) val;
+        }
+
+#undef GET_VALUE
+    }
+
+    void FeatureExtractor::RotateAndDistortPattern ( vector< Point > *rotated_distorted_pattern, const double angle_in_degree,
+            const Point2d &undistort_keypoint, const CameraModel &camera_model )
+    {
+        double angle_in_rad = angle_in_degree * RAD_IN_DEGREE;
+        double cos_value = cos ( angle_in_rad );
+        double sin_value = sin ( angle_in_rad );
+
+        vector<double> x_dist ( pattern_.size() );
+        vector<double> y_dist ( pattern_.size() );
+        double x_center = 0.0;
+        double y_center = 0.0;
+
+        for ( size_t p = 0; p < pattern_.size(); ++p )
+        {
+            // Coordinates of rotated samples at undistorted keypoint.
+            double x_sample = pattern_[p].x * cos_value - pattern_[p].y * sin_value + undistort_keypoint.x;
+            double y_sample = pattern_[p].x * sin_value + pattern_[p].y * cos_value + undistort_keypoint.y;
+            // Distort rotated sample positions
+            camera_model.DistortPoint ( x_sample, y_sample, &x_dist[p], &y_dist[p] );
+            // Accumulate x and y for finding the center.
+            x_center += x_dist[p];
+            y_center += y_dist[p];
+        }
+
+        // Get center of distorted pattern.
+        x_center /= static_cast<double> ( pattern_.size() );
+        y_center /= static_cast<double> ( pattern_.size() );
+
+        // Substract the center from each sample in distorted pattern to get it relative.
+        for ( size_t p = 0; p < pattern_.size(); ++p )
+        {
+            ( *rotated_distorted_pattern ) [p].x = cvRound ( x_dist[p] - x_center );
+            ( *rotated_distorted_pattern ) [p].y = cvRound ( y_dist[p] - y_center );
+        }
+    }
+
+    void FeatureExtractor::ComputeORBDescriptors ( const Mat &image, const KeyPoint &keypoint,
+            const CameraModel &camera_model, uchar *descriptor )
+    {
+        vector<Point> rotated_pattern ( pattern_.size() );
+
+        RotatePattern ( &rotated_pattern, keypoint.angle );
+
+        const Point *pattern = &rotated_pattern[0];
+        const uchar *center = 0;
+
+        int ix = 0, iy = 0;
+
+        int row = cvRound ( keypoint.pt.y );
+        int col = cvRound ( keypoint.pt.x );
+
+#define GET_VALUE(idx) \
+    ( ix = pattern[idx].x, \
+      iy = pattern[idx].y, \
+      center = image.ptr<uchar>(row+iy),\
+      center[col+ix] )
+
+        for ( int i = 0; i < descriptor_size_; ++i, pattern += 16 )
+        {
+            int t0, t1, val = 0;
+
+            for ( int j = 0; j < 8; j++ )
+            {
+                t0 = GET_VALUE ( 2 * j );
+                t1 = GET_VALUE ( 2 * j + 1 );
+                val |= ( t0 < t1 ) << j;
+            }
+
+            descriptor[i] = ( uchar ) val;
+        }
+
+#undef GET_VALUE
+    }
+
+    void FeatureExtractor::RotatePattern ( vector< Point > *rotated_pattern, const double angle_in_degree )
+    {
+        double angle_in_rad = angle_in_degree * RAD_IN_DEGREE;
+        double cos_value = cos ( angle_in_rad );
+        double sin_value = sin ( angle_in_rad );
+
+        for ( size_t p = 0; p < pattern_.size(); ++p )
+        {
+            // rotate pattern point
+            ( *rotated_pattern )[p].x = cvRound ( pattern_[p].x * cos_value - pattern_[p].y * sin_value );
+            ( *rotated_pattern )[p].y = cvRound ( pattern_[p].x * sin_value + pattern_[p].y * cos_value );
         }
     }
 
@@ -607,3 +885,5 @@ namespace MCVORBSLAM
     }
 
 }
+
+

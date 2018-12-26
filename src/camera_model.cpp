@@ -28,12 +28,38 @@ namespace MCVORBSLAM
         *z /= norm;
     }
 
-    void CameraModel::UndistortPoints ( const double in_x, const double in_y, const double focal_length, double *out_x, double *out_y ) const
+    void CameraModel::CameraToImage ( const double x, const double y, const double z, double *u, double *v ) const
+    {
+        double norm = hypot ( x, y );
+
+        if ( norm == 0.0 )
+        {
+            norm = 1e-14;
+        }
+
+        // z is flipped, i.e. theta is flipped.
+        const double theta = atan ( z / norm );
+        const double rho = -Utils::Horner ( inv_poly_.data(), inv_poly_degree_, theta );
+
+        const double uu = x / norm * rho;
+        const double vv = y / norm * rho;
+
+        // Affine matrix
+        *u = uu * c_ + vv * d_ + u0_;
+        *v = uu * e_ + vv + v0_;
+    }
+
+    void CameraModel::UndistortPoint ( const double in_x, const double in_y, const double focal_length, double *out_x, double *out_y ) const
     {
         double x, y, z;
         ImageToCamera ( in_x, in_y, &x, &y, &z );
         *out_x = x / z * focal_length;
         *out_y = y / z * focal_length;
+    }
+
+    void CameraModel::DistortPoint ( const double in_x, const double in_y, double *out_x, double *out_y ) const
+    {
+        CameraToImage ( in_x, in_y, -poly_[0], out_x, out_y );
     }
 
 }

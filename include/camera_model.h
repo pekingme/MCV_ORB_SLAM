@@ -24,8 +24,16 @@ namespace MCVORBSLAM
         // Output: (x, y, z) - 3D scene point, positive direction: right, down, forward.
         void ImageToCamera ( const double u, const double v, double *x, double *y, double *z ) const;
 
+        // Calculate corrdinates on image based on the 3D coordinates respect to the camera.
+        // Input: (x, y, z) - 3D scene point, positive direction: right, down, forward.
+        // Output: (u, v) - coordinates on image with left-top corner as origin.
+        void CameraToImage(const double x, const double y, const double z, double* u, double* v) const;
+        
         // Reproject the input image point to the image based on its ray.
-        void UndistortPoints(const double in_x, const double in_y, const double focal_length, double* out_x, double* out_y) const;
+        void UndistortPoint(const double in_x, const double in_y, const double focal_length, double* out_x, double* out_y) const;
+        
+        // Get distorted position of point on image.
+        void DistortPoint(const double in_x, const double in_y, double* out_x, double* out_y) const;
         
         int GetWidth()
         {
