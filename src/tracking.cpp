@@ -4,8 +4,8 @@
 namespace MCVORBSLAM
 {
 
-    Tracking::Tracking ( Map *const map, FramePublisher *const frame_publisher, const CameraSystem &camera_system, const vector<FeatureExtractor *> &extractors )
-        : map_ ( map ), frame_publisher_ ( frame_publisher ), camera_system_ ( camera_system ), extractors_ ( extractors )
+    Tracking::Tracking ( System *const system, Map *const map, FramePublisher *const frame_publisher, const CameraSystem &camera_system, const vector<FeatureExtractor *> &extractors )
+        : system_ ( system ), map_ ( map ), frame_publisher_ ( frame_publisher ), camera_system_ ( camera_system ), extractors_ ( extractors )
     {
 
     }
@@ -16,16 +16,19 @@ namespace MCVORBSLAM
         // Extract features based on current tracking state.
         if ( current_state_ == WORKING || current_state_ == LOST )
         {
-            current_frame_ = new MultiFrame ( multi_frame, timestamp, camera_system_, extractors_, false);
+            current_frame_ = new MultiFrame ( multi_frame, timestamp, camera_system_, extractors_, false );
         }
         else
         {
-            current_frame_ = new MultiFrame ( multi_frame, timestamp, camera_system_, extractors_, true);
+            current_frame_ = new MultiFrame ( multi_frame, timestamp, camera_system_, extractors_, true );
         }
 
-        // TODO Notify local mapping and loop closing the frame info.
+        // Notify local mapping and loop closing the frame info.
+        system_->NotifyFrameStatus ( current_frame_ );
 
         Track();
+
+        last_frame_ = current_frame_;
     }
 
     void Tracking::Track()
@@ -118,8 +121,6 @@ namespace MCVORBSLAM
                     velocity_ = Matx44d::eye();
                 }
             }
-
-            last_frame_ = current_frame_;
         }
 
         // Update publishers.
@@ -128,7 +129,68 @@ namespace MCVORBSLAM
 
     void Tracking::Initialize()
     {
-        // TODO
+        vector<KeyPoint> current_keypoints = current_frame_->GetKeyPoints();
+
+        if ( current_state_ == NOT_INITIALIZED )
+        {
+            // Only store current frame if it has enough features.
+            if ( current_keypoints.size() > 100 )
+            {
+                initial_reference_frame_ = MultiFrame ( current_frame_ );
+                keypoint_positions_.resize ( current_keypoints.size() );
+
+                for ( int i = 0; i < current_keypoints.size(); i++ )
+                {
+                    keypoint_positions_[i] = Vec2d ( current_keypoints[i].pt.x, current_keypoints[i].pt.y );
+                }
+
+                initializer_ = new Initializer ( current_frame_ );
+
+                current_state_ = INITIALIZING;
+            }
+        }
+        else if ( current_state_ == INITIALIZING )
+        {
+            // Set back to not initialized if next frame doesn't have enough features.
+            if ( current_keypoints.size() <= 100 )
+            {
+                fill ( keypoint_matches_.begin(), keypoint_matches_.end(), -1 );
+
+                current_state_ = NOT_INITIALIZED;
+            }
+            else
+            {
+                // TODO Find correspondences.
+                ORBMatcher matcher(0.9, current_frame_->DescripterSize(), false, current_frame_->UseMask());
+                int matches = matcher.SearchForInitialization();
+
+                // Discard if there are not enough correspondences.
+                if ( matches < 100 )
+                {
+                    current_state_ = NOT_INITIALIZED;
+                    return;
+                }
+
+                cv::Matx33d rotation; // Current camera rotation
+                cv::Vec3d translation; // Current camera translation
+                vector<bool> triangulated; // Triangulated Correspondences
+                int leading_camera = 0;
+
+                if ( initializer_-> Initialize() )
+                {
+                    for ( size_t i = 0, iend = keypoint_matches_.size(); i < iend; ++i )
+                    {
+                        if ( keypoint_matches_[i] >= 0 && !triangulated[i] )
+                        {
+                            keypoint_matches_[i] = -1;
+                            --matches;
+                        }
+                    }
+
+                    CreateInitialMap ( );
+                }
+            }
+        }
     }
 
     bool Tracking::TrackWithLastFrame()

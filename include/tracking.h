@@ -7,6 +7,8 @@
 # include "multi_frame.h"
 # include "frame_publisher.h"
 # include "feature_extractor.h"
+# include "initializer.h"
+# include "orb_matcher.h"
 
 # include <mutex>
 
@@ -26,7 +28,7 @@ namespace MCVORBSLAM
     public:
 
         // Constructor
-        Tracking ( Map *const map, FramePublisher *const frame_publisher, const CameraSystem &camera_system_, const vector<FeatureExtractor *> &extractors );
+        Tracking ( System *const system, Map *const map, FramePublisher *const frame_publisher, const CameraSystem &camera_system_, const vector<FeatureExtractor *> &extractors );
 
         // Tracking states enum.
         enum TrackingState
@@ -79,8 +81,11 @@ namespace MCVORBSLAM
         bool RelocalizationRequested();
 
 
+	////// Variables for system components //////
 
-
+        // System
+        System *system_;
+        
         // Map
         Map *map_;
 
@@ -95,7 +100,7 @@ namespace MCVORBSLAM
 
 
 
-
+	////// Variables for tracking flow control //////
 
         // Current tracking state
         TrackingState current_state_;
@@ -123,6 +128,21 @@ namespace MCVORBSLAM
 
         // Mutex
         mutex mutex_manual_relocalization_requested;
+        
+       
+       ////// Variables for initialization //////
+       
+       // The first frame for initialization (as reference).
+       MultiFrame initial_reference_frame_;
+       
+       // Keypoint positions in previous frame, only matched ones are updated.
+       vector<Vec2d> keypoint_positions_;
+       
+       // Matched keypoint in the current frame compared to reference frame.
+       vector<bool> keypoint_matches_;
+       
+       // Initializer.
+       Initializer* initializer_;
     };
 }
 

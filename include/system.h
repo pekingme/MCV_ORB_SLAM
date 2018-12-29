@@ -42,6 +42,9 @@ namespace MCVORBSLAM
         // or grayscale (CV_8U). BGR will be converted to grayscale if needed.
         void TrackMultiFrame ( vector<Mat> *const multi_frame, const double &timestamp );
 
+        // Notify some basic frame status to necessary other threads.
+        void NotifyFrameStatus ( const MultiFrame &frame ) const;
+
         void SetCameraSystem ( const CameraSystem &camera_system )
         {
             camera_system_ = camera_system;

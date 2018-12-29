@@ -25,7 +25,7 @@ namespace MCVORBSLAM
         frame_publisher_ = new FramePublisher ( map_, yaml_path );
 
         // Create tracking
-        tracking_ = new Tracking ( map_, frame_publisher_, camera_system_, feature_extractors_);
+        tracking_ = new Tracking ( map_, frame_publisher_, camera_system_, feature_extractors_ );
 
         // Create local mapping
         local_mapping_ = new LocalMapping();
@@ -148,6 +148,12 @@ namespace MCVORBSLAM
         // TODO Manage reset manual toggle
 
         tracking_->ProcessMultiFrame ( *multi_frame, timestamp );
+    }
+
+    void System::NotifyFrameStatus ( const MultiFrame &frame ) const
+    {
+        local_mapping_->SetFrameStatus ( frame );
+        loop_closing_->SetFrameStatus ( frame );
     }
 
 }

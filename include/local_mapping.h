@@ -1,6 +1,8 @@
 #ifndef LOCALMAPPING_H
 #define LOCALMAPPING_H
 
+# include "multi_frame.h"
+
 namespace MCVORBSLAM
 {
     class LocalMapping
@@ -8,6 +10,9 @@ namespace MCVORBSLAM
     public:
         // Function called in loop.
         void Run();
+        
+        // Set frame's info for feature matching.
+        void SetFrameStatus(const MultiFrame& frame);
     };
 }
 

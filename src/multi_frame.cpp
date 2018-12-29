@@ -102,6 +102,10 @@ namespace MCVORBSLAM
         // Initlize outlier flags.
         keypoint_outliers_ = vector<bool> ( keypoints_.size(), false );
         id_ = next_id_++;
+        
+        // Copy some parameters from extractor to frame.
+        use_mask_ = extractors_[0]->UseMask();
+        descriptor_size_ = extractors_[0]->DescriptorSize();
 
         chrono::high_resolution_clock::time_point end = chrono::high_resolution_clock::now();
         cout << "--- Feature Extraction (" << Utils::DurationInMilliseconds ( start, end ) << "ms) - FrameId: " << id_ << " ---" << endl;

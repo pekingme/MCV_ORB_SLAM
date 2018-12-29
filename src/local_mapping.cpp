@@ -6,4 +6,9 @@ namespace MCVORBSLAM {
 
     }
 
+    void LocalMapping::SetFrameStatus ( const MultiFrame &frame )
+    {
+
+    }
+
 }

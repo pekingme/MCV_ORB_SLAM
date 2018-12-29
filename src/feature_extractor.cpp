@@ -50,7 +50,6 @@ namespace MCVORBSLAM
         // Calculate boundary of circular patch for orientation calculation.
         patch_bound_u_.resize ( HALF_PATCH_SIZE + 1 );
 
-
         int vmax = cvFloor ( HALF_PATCH_SIZE * sqrt ( 2.f ) / 2 + 1 );
         int vmin = cvCeil ( HALF_PATCH_SIZE * sqrt ( 2.f ) / 2 );
         const double hp2 = HALF_PATCH_SIZE * HALF_PATCH_SIZE;
@@ -92,7 +91,7 @@ namespace MCVORBSLAM
 
         // Compute keypoints in all levels of pyramid.
         vector<vector<KeyPoint>> keypoints_temp;
-        ComputeKeypointOctTree ( image_pyramid, mask_pyramid, &keypoints_temp );
+        ComputeKeypointOctTree ( image_pyramid, mask_pyramid, &keypoints_temp, initializing );
         int keypoints_count = 0;
 
         for ( int i = 0; i < level_count_; i++ )
@@ -220,13 +219,16 @@ namespace MCVORBSLAM
     }
 
 
-    void FeatureExtractor::ComputeKeypointOctTree ( const vector< Mat > &image_pyramid, const vector<Mat> &mask_pyramid, vector< vector< KeyPoint > > *keypoints )
+    void FeatureExtractor::ComputeKeypointOctTree ( const vector< Mat > &image_pyramid, const vector<Mat> &mask_pyramid, vector< vector< KeyPoint > > *keypoints, const bool initializing )
     {
         keypoints->resize ( level_count_ );
 
         const double preset_cell_size = 30.0;
-        Ptr<AgastFeatureDetector> agast = AgastFeatureDetector::create ( fast_agast_threshold_, true, fast_agast_type_ );
-        Ptr<FastFeatureDetector> fast = FastFeatureDetector::create ( fast_agast_threshold_, true, fast_agast_type_ );
+        // Create feature detector, using 5 as threshold if initializing.
+        Ptr<AgastFeatureDetector> agast = AgastFeatureDetector::create (
+                                              ( initializing ? 5 : fast_agast_threshold_ ), true, fast_agast_type_ );
+        Ptr<FastFeatureDetector> fast = FastFeatureDetector::create (
+                                            ( initializing ? 5 : fast_agast_threshold_ ), true, fast_agast_type_ );
 
         for ( int level = 0; level < level_count_; level++ )
         {
@@ -293,7 +295,10 @@ namespace MCVORBSLAM
 
             vector<KeyPoint> &level_keypoints = ( *keypoints ) [level];
             level_keypoints.reserve ( feature_count_ );
-            DistributeOctree ( keypoints_temp, &level_keypoints, border_x_min, border_x_max, border_y_min, border_y_max, level );
+
+            // Double the limit of the feature number if initializing.
+            DistributeOctree ( keypoints_temp, &level_keypoints, border_x_min, border_x_max, border_y_min, border_y_max,
+                               ( initializing ? 2 * level_feature_count_[level] : level_feature_count_[level] ), level );
 
             const int scaled_patch_size = PATCH_SIZE * scale_factors_[level];
 
@@ -354,7 +359,7 @@ namespace MCVORBSLAM
     void FeatureExtractor::DistributeOctree ( const vector< KeyPoint > &keypoints, vector< KeyPoint > *level_keypoints,
             const int border_x_min, const int border_x_max,
             const int border_y_min, const int border_y_max,
-            const int level )
+            const int feature_count, const int level )
     {
         // Compute the number of initial nodes, determined by the ratio of the area.
         const int init_node_count = cvRound ( static_cast<double> ( border_x_max - border_x_min ) / ( border_y_max - border_y_min ) );
@@ -481,12 +486,12 @@ namespace MCVORBSLAM
                 }
             }
 
-            if ( ( int ) nodes.size() >= level_feature_count_[level] || nodes_count_to_expand == 0 )
+            if ( ( int ) nodes.size() >= feature_count || nodes_count_to_expand == 0 )
             {
                 // Finish if there are more nodes than required features or no nodes to divide
                 done = true;
             }
-            else if ( ( int ) nodes.size() + 3 * nodes_count_to_expand > level_feature_count_[level] )
+            else if ( ( int ) nodes.size() + 3 * nodes_count_to_expand > feature_count )
             {
                 // If the next level potentially has more nodes than required, divide the nodes
                 // in the descending order of number of keypoints it contains.
@@ -554,13 +559,13 @@ namespace MCVORBSLAM
 
                         nodes.erase ( keypoint_count_and_node_temp[i].second );
 
-                        if ( ( int ) nodes.size() >= level_feature_count_[level] )
+                        if ( ( int ) nodes.size() >= feature_count )
                         {
                             break;
                         }
                     }
 
-                    if ( ( int ) nodes.size() >= level_feature_count_[level] || nodes_count_to_expand == 0 )
+                    if ( ( int ) nodes.size() >= feature_count || nodes_count_to_expand == 0 )
                     {
                         done = true;
                     }
@@ -591,7 +596,7 @@ namespace MCVORBSLAM
     void FeatureExtractor::ComputeOrientation ( const Mat &image, vector< KeyPoint > *level_keypoints )
     {
         for ( vector<KeyPoint>::iterator keypoint = level_keypoints->begin();
-              keypoint != level_keypoints->end(); keypoint++ )
+                keypoint != level_keypoints->end(); keypoint++ )
         {
             int m_01 = 0, m_10 = 0;
 
@@ -814,8 +819,8 @@ namespace MCVORBSLAM
         for ( size_t p = 0; p < pattern_.size(); ++p )
         {
             // rotate pattern point
-            ( *rotated_pattern )[p].x = cvRound ( pattern_[p].x * cos_value - pattern_[p].y * sin_value );
-            ( *rotated_pattern )[p].y = cvRound ( pattern_[p].x * sin_value + pattern_[p].y * cos_value );
+            ( *rotated_pattern ) [p].x = cvRound ( pattern_[p].x * cos_value - pattern_[p].y * sin_value );
+            ( *rotated_pattern ) [p].y = cvRound ( pattern_[p].x * sin_value + pattern_[p].y * cos_value );
         }
     }
 

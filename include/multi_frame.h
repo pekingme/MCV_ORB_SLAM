@@ -31,15 +31,51 @@ namespace MCVORBSLAM
                      const vector<FeatureExtractor *> &extractors, const bool initializing );
 
         // Return camera system pose when this frame was captured.
-        Matx44d GetPose()
+        Matx44d GetPose() const
         {
             return camera_pose_.pose_;
+        }
+
+        // Getter of keypoints_.
+        vector<KeyPoint> GetKeyPoints() const
+        {
+            return keypoints_;
+        }
+
+        // Getter of keyrays_.
+        vector<Vec3d> GetKeyRays() const
+        {
+            return keyrays_;
+        }
+
+        // Getter of camera_system_.
+        CameraSystem GetCameraSystem() const
+        {
+            return camera_system_;
+        }
+
+        // Getter of descriptor_size_.
+        int DescripterSize() const
+        {
+            return descriptor_size_;
+        }
+
+        // Getter of use_mask_.
+        bool UseMask() const
+        {
+            return use_mask_;
+        }
+
+        // Getter of keypoint_camera_map_.
+        unordered_map<size_t, int> GetKeypointCameraMap() const
+        {
+            return keypoint_camera_map_;
         }
 
         // Next frame id, using static variable to manage auto increment.
         // Need to be thread safe if used in multiple threads.
         static size_t next_id_;
-        
+
         // An index for this multi frame object.
         size_t id_;
 
@@ -50,7 +86,7 @@ namespace MCVORBSLAM
         vector<int> outliers_;
 
     private:
-	// Find grid cell position based on keypoint position. Return whether find one.
+        // Find grid cell position based on keypoint position. Return whether find one.
         bool FindGridCell ( const int camera_index, const KeyPoint &keypoint, int *grid_x, int *grid_y );
 
 
@@ -65,6 +101,12 @@ namespace MCVORBSLAM
 
         // Feature extractors
         vector<FeatureExtractor *> extractors_;
+
+        // The size of descriptors for this frame.
+        int descriptor_size_;
+
+        // Whether features are extracted from this frame using masks
+        bool use_mask_;
 
         // Camera system pose
         CameraSystemPose camera_pose_;
@@ -108,7 +150,7 @@ namespace MCVORBSLAM
 
         // Map from keypoint index to its image-wise index
         unordered_map<size_t, size_t> keypoint_imagewise_map_;
-        
+
         // Flags a keypoint is outlier.
         vector<bool> keypoint_outliers_;
 

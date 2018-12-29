@@ -5,5 +5,10 @@ namespace MCVORBSLAM {
     {
 
     }
+    
+    void LoopClosing::SetFrameStatus ( const MultiFrame &frame )
+    {
+
+    }
 
 }
